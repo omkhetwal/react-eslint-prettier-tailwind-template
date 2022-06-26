@@ -38,12 +38,52 @@ function Community() {
 
   //console.log(JSON.stringify(messages, null, 2));
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit } = useForm();
 
-  const onSubmit = (data) => {
-    console.log(data);
+  /**
+   *
+   * @param data
+   * 1. Extract username,content and image from the form
+   * 2. Generate name for the image
+   *    2.1 Retrieve file extension
+   *    2.2 Generate random number
+   * 3. Upload the image to the storage
+   * 4. It will return key
+   * 5. Create public url for the image
+   * 6. Create a new message with the username, content and image url
+   */
 
-    createNewMessage(data);
+  const onSubmit = async (data) => {
+    try {
+      const { username, content, imgUrl } = data;
+
+      const file = imgUrl[0];
+      const fileExt = file.name.split(".").pop();
+      const fileName = Math.random() + "." + fileExt;
+
+      let { data: uploadedData, error: uploadError } = await supabase.storage
+        .from("images")
+        .upload(fileName, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const res = await supabase.storage
+        .from("images")
+        .getPublicUrl(uploadedData.Key);
+      const img_url = res.publicURL.replace("/images", "");
+
+      const messageDetails = {
+        username,
+        content,
+        img_url,
+      };
+      await createNewMessage(messageDetails);
+      init();
+    } catch (error) {
+      console.log(error, "error in onSubmit");
+    }
   };
 
   return (
@@ -54,7 +94,10 @@ function Community() {
             <div className="flex justify-center items-center space-x-40 m-5 p-2 bg-slate-300 rounded-t-lg rounded-br-lg relative">
               <div className="absolute left-10">
                 <img
-                  src="https://images.unsplash.com/photo-1549078642-b2ba4bda0cdb?ixlib=rb-1.2.1&amp;ixid=eyJhcHBfaWQiOjEyMDd9&amp;auto=format&amp;fit=facearea&amp;facepad=3&amp;w=144&amp;h=144"
+                  src={
+                    msg.img_url ||
+                    "https://images.unsplash.com/photo-1549078642-b2ba4bda0cdb?ixlib=rb-1.2.1&amp;ixid=eyJhcHBfaWQiOjEyMDd9&amp;auto=format&amp;fit=facearea&amp;facepad=3&amp;w=144&amp;h=144"
+                  }
                   alt="My profile"
                   className="w-6 h-6 rounded-full order-1"
                 />
@@ -93,7 +136,7 @@ function Community() {
           <input
             type="file"
             accept=".jpg, .jpeg, .png"
-            {...register("img-url")}
+            {...register("imgUrl")}
           />
           <br />
           <br />
